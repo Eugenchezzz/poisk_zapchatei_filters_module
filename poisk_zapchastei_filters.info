@@ -1,0 +1,9 @@
+name = Poisk Zapchastei Filters
+description = "Custom filters for poisk_zapchastei view to modify filter operators."
+core = 7.x
+package = Custom
+version = "7.x-1.0"
+dependencies[] = views
+
+; Префикс модуля, определяющий его имя и отличающий его от других.
+files[] = poisk_zapchastei_filters.module

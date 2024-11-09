@@ -1,0 +1,393 @@
+<?php
+use Drupal\Core\Form\FormStateInterface;
+
+
+/**
+ * МОДУЛЬ ОБЕСПЕЧИВАЕТ НЕОБХОДИМЫЕ ИЗМЕНЕНИЯ И ДОПЛНЕНИЯ ФОРМЕ ФИЛЬТРАЦИИ ДЛЯ ВЬЮШКИ POISK_ZAPCHATEI
+ */
+function poisk_zapchastei_filters_form_alter(&$form, &$form_state, $form_id) {
+
+  //Основная проверка (чтобы применялось только в нужной форме)
+  if ($form_id == 'views_exposed_form') {
+    if(isset($form['field_year_do'])){
+
+
+      // Подключаем кастомный CSS
+      drupal_add_css(drupal_get_path('module', 'poisk_zapchastei_filters') . '/css/form-media-style.css');
+
+    // Переопределяем поле 'field_year_from' и 'field_year_do' под textarea, чтобы не было проблем с объемом поиска
+      if (isset($form['field_year_from'])) {
+        $form['field_year_from']['#type'] = 'textarea';
+        $form['field_year_from']['#attributes']['rows'] = 3; // Устанавливаем количество строк
+        $form['field_year_from']['#attributes']['cols'] = 60; // Устанавливаем количество столбцов
+      }
+
+      // Переопределяем поле 'field_year_do' под textarea
+      if (isset($form['field_year_do'])) {
+        $form['field_year_do']['#type'] = 'textarea';
+        $form['field_year_do']['#attributes']['rows'] = 3; // Устанавливаем количество строк
+        $form['field_year_do']['#attributes']['cols'] = 60; // Устанавливаем количество столбцов
+      }
+
+
+
+
+
+    // Добавление кнопки сброса поиска
+    $form['reset_button'] = array(
+      '#type' => 'button',
+      '#value' => t('Сбросить'),
+      '#attributes' => array('onclick' => 'window.location.href="/admin/poisk-zapchastei"; return false;'),
+    );
+
+
+
+    // Превращаем `field_toplivo_value` в выпадающий список.
+    if (isset($form['field_toplivo_value'])) {
+      $form['field_toplivo_value']['#type'] = 'select';
+      $form['field_toplivo_value']['#multiple'] = FALSE;
+      $form['field_toplivo_value']['#options'] = array(
+        '' => t('- Выберите топливо -'),
+        'бензин' => 'бензин',
+        'бензин, газ' => 'бензин, газ',
+        'бензин, электро' => 'бензин, электро',
+        'газ' => 'газ',
+        'гибрид' => 'гибрид',
+        'дизель' => 'дизель',
+        'дизель, гибрид' => 'дизель, гибрид',
+        'электро' => 'электро',
+      );
+      $form['field_toplivo_value']['#attributes']['class'][] = 'select2-results__options';
+      $form['field_toplivo_value']['#attributes']['style'] = 'display: none;height: 300px; background-color: #f1f1f1; box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2); z-index: 1;';
+    }
+
+    // Превращаем `field_obiem_value` в выпадающий список.
+    if (isset($form['field_obiem_value'])) {
+      $form['field_obiem_value']['#type'] = 'select';
+      $form['field_obiem_value']['#multiple'] = FALSE;
+      $form['field_obiem_value']['#options'] = array(
+        '' => t('- Выберите объем -'),
+        '1.2' => '1.2',
+        '1.5' => '1.5',
+        '1.7' => '1.7',
+        '1.0' => '1.0',
+        '1.1' => '1.1',
+        '1.3' => '1.3',
+        '1.4' => '1.4',
+        '1.6' => '1.6',
+        '1.8' => '1.8',
+        '2.0' => '2.0',
+        '2.2' => '2.2',
+        '2.4' => '2.4',
+        '2.5' => '2.5',
+        '3.0' => '3.0',
+        '3.5' => '3.5',
+        '4.0' => '4.0',
+        '5.0' => '5.0',
+      );
+      $form['field_obiem_value']['#attributes']['style'] = 'display:none; max-height: 60px; overflow-y: auto;';
+      $form['field_obiem_value']['#attributes']['class'][] = 'select2-results__options';
+    }
+
+    
+  
+
+ 
+
+    // Подключаем select2 (для выпадающих списков)
+    drupal_add_css('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css');
+    drupal_add_js('https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js');
+    drupal_add_js('
+      jQuery(document).ready(function() {
+        jQuery(".select2-results__options").select2({
+          width: "300px",
+          dropdownAutoWidth: true
+        });
+      });
+    ', 'inline');
+
+
+
+
+
+
+
+
+
+    //добавление дополнительных полей для ввода и передачи данных о годе полям фильтрации
+
+
+
+
+
+      // Контейнер для поля выбора года "от"
+
+        // Обертка для полей выбора года
+        $form['year']['#prefix'] = '<div class="year-container">';
+        $form['year']['#suffix'] = '</div>';
+
+        // Поле для выбора начального года
+        $form['year']['year_from_select'] = array(
+          '#type' => 'select',
+          '#title' => t('Год (от)'),
+          '#options' => array_combine(range(1983, 2022), range(1983, 2022)),
+          '#empty_option' => t('- Любой -'),
+          '#ajax' => array(
+            'callback' => 'poisk_zapchastei_year_from_callback',
+            'event' => 'change',
+            'wrapper' => 'field-year-from-wrapper',
+          ),
+          '#prefix' => '<div class="year-wrapper">',
+          '#suffix' => '</div>',
+        );
+
+        // Поле для выбора конечного года
+        $form['year']['year_do_select'] = array(
+          '#type' => 'select',
+          '#title' => t('Год (до)'),
+          '#options' => array_combine(range(1983, 2022), range(1983, 2022)),
+          '#empty_option' => t('- Любой -'),
+          '#ajax' => array(
+            'callback' => 'poisk_zapchastei_year_do_callback',
+            'event' => 'change',
+            'wrapper' => 'field-year-do-wrapper',
+          ),
+          '#prefix' => '<div class="year-wrapper">',
+          '#suffix' => '</div>',
+        );
+
+
+
+
+        
+      // Оригинальные скрытые поля для годов
+      if (isset($form['field_year_from'])) {
+
+        $form['field_year_from']['#prefix'] = '<div id="field-year-from-wrapper">';
+        $form['field_year_from']['#suffix'] = '</div>';
+      }
+      if (isset($form['field_year_do'])) {
+        $form['field_year_do']['#prefix'] = '<div id="field-year-do-wrapper">';
+        $form['field_year_do']['#suffix'] = '</div>';
+      }
+
+
+      // ТУТ РАЗМЕЩАЕМ ЛОГИКУ СВЯЗИ МОДЕЛИ И ПОКОЛЕНИЯ.
+      
+
+    
+      
+      // Добавляем Ajax к полю марки
+      $form['field_model_ref_tid']['#ajax'] = [
+        'callback' => 'poisk_zapchastei_filters_update_generations',
+        'wrapper' => 'edit-field-pokolenie-ref-tid', // Уникальный ID обертки
+      ];
+
+              // Создаем обертку для поля поколений
+        $form['field_pokolenie_ref_tid']['#prefix'] = '<div id="edit-field-pokolenie-ref-tid">';
+        $form['field_pokolenie_ref_tid']['#suffix'] = '</div>';
+
+
+
+        // костыльный перенос и клонирование некоторых полей
+ 
+
+          drupal_add_js('
+            document.addEventListener("DOMContentLoaded", function() {
+              // Клонируем и вставляем элемент
+              const elementToCopy = document.querySelector(".views-exposed-widget.views-submit-button");
+              if (elementToCopy) {
+                const clonedElement = elementToCopy.cloneNode(true);
+                clonedElement.id = "header_buttons_bar";
+                const parentElement = document.querySelector(".views-exposed-widgets.clearfix");
+                if (parentElement) {
+                  parentElement.insertBefore(clonedElement, parentElement.firstChild);
+                }
+        
+                // Удаляем элемент с классом year-container из клона
+                const clonedYearContainer = clonedElement.querySelector(".year-container");
+                if (clonedYearContainer) {
+                  clonedYearContainer.remove();
+                }
+        
+                // Перемещаем элемент с классом year-container в начало исходного элемента
+                const originalYearContainer = elementToCopy.querySelector(".year-container");
+                if (originalYearContainer) {
+                  elementToCopy.insertBefore(originalYearContainer, elementToCopy.firstChild);
+                }
+              }
+            });
+          ', 'inline');
+        
+        
+
+        
+        
+        
+        
+        
+
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    }
+  }
+}
+
+
+
+
+
+
+// колбэк для записи списка возможных значений года в скрытые поля поиска(для поля от)
+function poisk_zapchastei_year_from_callback($form, &$form_state) {
+  $selected_year = $form_state['values']['year_from_select'];
+  if ($selected_year) {
+    // Создаем диапазон от выбранного года до 2022 и записываем в скрытое поле field_year_from
+    $years = range($selected_year, 2022);
+    $form['field_year_from']['#value'] = implode(', ', $years);
+  } else {
+    $form['field_year_from']['#value'] = '';
+  }
+  return $form['field_year_from'];
+}
+
+// колбэк для записи списка возможных значений года в скрытые поля поиска(для поля до)
+function poisk_zapchastei_year_do_callback($form, &$form_state) {
+  $selected_year = $form_state['values']['year_do_select'];
+  if ($selected_year) {
+    // Создаем диапазон от 1983 до выбранного года и записываем в скрытое поле field_year_do
+    $years = range(1983, $selected_year);
+    $form['field_year_do']['#value'] = implode(', ', $years);
+  } else {
+    $form['field_year_do']['#value'] = '';
+  }
+  return $form['field_year_do'];
+}
+
+
+
+// колбэк для создания связи между моделью и поколением. 
+function poisk_zapchastei_filters_update_generations($form, &$form_state) {
+  // Отладка: логируем запуск функции.
+  watchdog('poisk_zapchastei', 'Функция poisk_zapchastei_filters_update_generations запущена.');
+
+  // Получаем TID модели из поля.
+  $model_name = $form_state['values']['field_model_ref_tid'];
+  $model_tid = get_model_tid_by_name($model_name);
+  watchdog('poisk_zapchastei', 'Получен TID модели: @tid', ['@tid' => $model_tid]);
+
+  // Инициализируем массив для хранения доступных поколений.
+  $available_generations = [];
+
+  // Проверяем, если TID модели задан.
+  if (!empty($model_tid)) {
+      // Выполняем запрос для выборки поколений, у которых поле модель совпадает с model_tid.
+      $query = new EntityFieldQuery();
+      $query->entityCondition('entity_type', 'taxonomy_term')
+            ->entityCondition('bundle', 'generation') // Вид таксономии для поколений
+            ->fieldCondition('field_model', 'tid', $model_tid, '='); // Условие по модели
+      watchdog('poisk_zapchastei', 'Запрос для выборки поколений сформирован.');
+
+      // Выполняем запрос и получаем результаты.
+      $result = $query->execute();
+      watchdog('poisk_zapchastei', 'Результат запроса: @result', ['@result' => print_r($result, TRUE)]);
+
+      if (!empty($result['taxonomy_term'])) {
+          // Загружаем подходящие термины поколений.
+          $generation_terms = taxonomy_term_load_multiple(array_keys($result['taxonomy_term']));
+          watchdog('poisk_zapchastei', 'Загружены термины поколений: @terms', ['@terms' => print_r($generation_terms, TRUE)]);
+
+          // Заполняем массив доступных поколений для выпадающего списка.
+          foreach ($generation_terms as $term) {
+              $available_generations[$term->tid] = $term->name;
+              watchdog('poisk_zapchastei', 'Добавлено поколение: TID = @tid, Name = @name', [
+                  '@tid' => $term->tid,
+                  '@name' => $term->name,
+              ]);
+          }
+
+          // Подготавливаем массив имен поколений для отладки.
+          $generation_names = array_values($available_generations);
+          watchdog('poisk_zapchastei', 'Имена всех подходящих поколений: @generations', [
+              '@generations' => implode(', ', $generation_names),
+          ]);
+      }
+      else {
+          watchdog('poisk_zapchastei', 'Не найдено подходящих терминов для поколения с моделью TID = @tid', ['@tid' => $model_tid]);
+      }
+  } else {
+      watchdog('poisk_zapchastei', 'TID модели не задан или пустой.');
+  }
+
+  // Обновляем выпадающий список поколений.
+  $form['field_pokolenie_ref_tid']['#options'] = $available_generations;
+  $form['field_pokolenie_ref_tid']['#default_value'] = NULL; // Сбрасываем значение по умолчанию
+  watchdog('poisk_zapchastei', 'Выпадающий список поколений обновлен.');
+
+  // Возвращаем обновленную часть формы.
+  watchdog('poisk_zapchastei', 'Возвращаем обновленную часть формы.');
+  return $form['field_pokolenie_ref_tid'];
+}
+
+
+
+/**
+ * Ищет термин по имени в словаре с машинным именем 'marka_model' и возвращает его TID.
+ *
+ * @param string $model_name
+ *   Имя модели, которую необходимо найти.
+ *
+ * @return int|null
+ *   TID термина, если найден, или NULL, если термин не найден.
+ */
+function get_model_tid_by_name($model_name) {
+  $query = new EntityFieldQuery();
+
+  // Выполняем запрос для поиска термина по имени в словаре 'marka_model'.
+  $query->entityCondition('entity_type', 'taxonomy_term')
+    ->entityCondition('bundle', 'marka_model')
+    ->propertyCondition('name', $model_name);
+
+  $result = $query->execute();
+
+  // Проверяем, если результат содержит термин.
+  if (!empty($result['taxonomy_term'])) {
+    // Получаем первый найденный термин.
+    $tids = array_keys($result['taxonomy_term']);
+    return reset($tids); // Возвращаем TID первого термина.
+  }
+
+  // Если термин не найден, возвращаем NULL.
+  return NULL;
+}
+
+
+
+
+
